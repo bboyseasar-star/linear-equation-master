@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>このアプリについて — 👹 高校入試対策シリーズ ～大問2・一次方程式～</title>
+  <link rel="stylesheet" href="style.css">
+  <style>body{overflow:auto}.legal{width:min(900px,100%);margin:24px auto;background:#fff;padding:24px;border-radius:18px}.tabs{display:flex;gap:8px;border-bottom:1px solid #dbe4ef;padding-bottom:10px}.tabs button[aria-selected="true"]{background:#5b3cc4;color:#fff}.panel{line-height:1.8;max-height:60vh;overflow:auto;padding:14px 4px}.panel pre{white-space:pre-wrap;font: .82rem ui-monospace,monospace}.panel a{color:#4338ca}</style>
+</head>
+<body><main class="legal"><p><a href="./">← ホーム画面に戻る</a></p><h1><span class="emoji-icon">👹</span> このアプリについて</h1><div class="tabs" role="tablist" aria-label="権利情報"><button role="tab" aria-selected="true" aria-controls="terms" id="terms-tab">利用条件・出典・プライバシー</button><button role="tab" aria-selected="false" aria-controls="license" id="license-tab">ライセンス</button></div><section id="terms" role="tabpanel" aria-labelledby="terms-tab" class="panel"></section><section id="license" role="tabpanel" aria-labelledby="license-tab" class="panel" hidden></section><p><a href="./">← ホーム画面に戻る</a></p></main>
+<script>
+function appendTextWithLinks(target,text){const parts=text.replace(/`/g,'').split(/(https?:\/\/[^\s）)]+[^\s）),.]?)/g);parts.forEach(part=>{if(/^https?:\/\//.test(part)){const a=document.createElement('a');a.href=part;a.target='_blank';a.rel='noopener';a.textContent=part;target.append(a)}else target.append(document.createTextNode(part));});}
+function renderNotice(text,target){let list=null;text.split('\n').forEach(line=>{if(line.startsWith('# ')){const e=document.createElement('h2');e.textContent=line.slice(2);target.append(e);list=null;}else if(line.startsWith('## ')){const e=document.createElement('h3');e.textContent=line.slice(3);target.append(e);list=null;}else if(line.startsWith('- ')){if(!list){list=document.createElement('ul');target.append(list)}const e=document.createElement('li');appendTextWithLinks(e,line.slice(2));list.append(e)}else if(line.trim()){const e=document.createElement('p');appendTextWithLinks(e,line);target.append(e);list=null;}})}
+async function load(){const terms=document.querySelector('#terms'),license=document.querySelector('#license');try{renderNotice(await (await fetch('NOTICE.md')).text(),terms)}catch{terms.textContent='利用条件を読み込めませんでした。'}try{const pre=document.createElement('pre');pre.textContent=await (await fetch('LICENSE')).text();license.append(pre)}catch{license.textContent='ライセンスを読み込めませんでした。'}}
+document.querySelectorAll('[role=tab]').forEach(tab=>tab.addEventListener('click',()=>{document.querySelectorAll('[role=tab]').forEach(t=>t.setAttribute('aria-selected',String(t===tab)));document.querySelector('#terms').hidden=tab.id!=='terms-tab';document.querySelector('#license').hidden=tab.id!=='license-tab';}));load();
+</script></body></html>
