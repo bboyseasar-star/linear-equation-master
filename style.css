@@ -18,13 +18,19 @@ button, input { font:inherit; } button { cursor:pointer; border:0; border-radius
 .result-list { overflow:auto; min-height:0; flex:1; padding-right:4px; }.result-item { border-left:5px solid var(--line); padding:10px 12px; margin:8px 0; background:#fff; }.result-item.good { border-color:var(--good); }.result-item.bad { border-color:var(--bad); }.result-score { font-size:clamp(2rem,5vw,3.8rem); margin:0; color:var(--primary); }
 .setup { max-width:700px; margin:auto; width:100%; }.choice-row { display:flex; gap:10px; flex-wrap:wrap; }.choice { background:#eef2ff; color:#3730a3; }.choice.selected { background:var(--primary); color:#fff; }
 .notice { padding:10px 12px; border-radius:10px; background:#fff7ed; color:#9a3412; }.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+.handwriting-canvas { position:fixed; inset:0; z-index:30; width:100vw; height:100vh; pointer-events:none; }
+.handwriting-tools { position:fixed; right:clamp(12px,2vw,28px); bottom:clamp(12px,2vw,28px); z-index:40; display:flex; align-items:center; gap:6px; padding:7px; border:1px solid #cbd5e1; border-radius:16px; background:rgba(255,255,255,.96); box-shadow:0 8px 24px rgba(30,41,59,.18); }
+.handwriting-tools button { min-height:40px; padding:7px 11px; border:1px solid transparent; border-radius:10px; background:#f1f5f9; color:#334155; font-size:.9rem; }
+.handwriting-tools button[aria-pressed="true"] { border-color:#5b3cc4; background:#e9e5ff; color:#4028a1; }
+.handwriting-tools button:disabled { cursor:not-allowed; opacity:.45; }
+.handwriting-status { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
 @media (max-width:720px) { .shell { border-radius:14px; } .home-grid,.question-layout { grid-template-columns:1fr; } .question-layout { overflow:auto; } .side { min-height:180px; } .topbar { padding:11px 14px; } .content { padding:14px; } }
 
 /* ── ドリル画面：既存シリーズ共通の「上部進捗＋問題＋ヒント」構成 ── */
 .quiz-shell { width:100%; height:100%; max-width:1366px; border:0; border-radius:0; box-shadow:none; background:transparent; overflow:visible; }
 .quiz-shell .topbar { background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 8px 24px rgba(30,41,59,.10); padding:12px 18px; }
 .quiz-shell .brand { color:var(--primary); font-size:clamp(1rem,2vw,1.35rem); font-weight:800; }
-.quiz-shell .content { padding:clamp(12px,2vh,20px) 0 0; gap:10px; overflow:hidden; }
+.quiz-shell .content { padding:clamp(12px,2vh,20px) 0 92px; gap:10px; overflow:hidden; }
 .quiz-shell .meta { justify-content:space-between; padding:0 4px; font-size:clamp(.8rem,1.5vw,1rem); }
 .quiz-shell .progress { height:12px; box-shadow:inset 0 1px 2px rgba(30,41,59,.08); }
 .quiz-shell .question-layout { grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr); gap:clamp(14px,2vw,26px); overflow:hidden; }
@@ -55,6 +61,7 @@ button, input { font:inherit; } button { cursor:pointer; border:0; border-radius
   .quiz-shell .side { min-height:210px; }
   .quiz-shell .hint-box { flex:0 0 120px; }
 }
+@media (max-width:480px) { .handwriting-tools { left:8px; right:8px; bottom:8px; justify-content:center; } .handwriting-tools button { flex:1; padding:7px 6px; } }
 
 .hidden { display:none !important; }
 .quiz-shell .hint-box { display:flex; flex-direction:column; gap:10px; padding:0; background:transparent; border:0; border-radius:0; overflow:auto; }
