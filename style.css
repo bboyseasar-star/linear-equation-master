@@ -107,3 +107,31 @@ button, input { font:inherit; } button { cursor:pointer; border:0; border-radius
 .quiz-shell .side .hint-placeholder { margin:auto; width:100%; }
 @media (max-width:720px) { .quiz-shell .hint-grid { grid-template-columns:1fr; gap:5px; } }
 @media (max-width:720px) { .quiz-shell .compact-answer .math-wrap { width:180px; } .quiz-shell .question-hint { min-height:150px; } }
+/* 判定の見せ分け（2026-10-23）：△分母のマイナス／×あと一歩（途中）／×書き方／採点していない（空欄・書きかけ） */
+.feedback.partial { background:#fff7ed; border-color:#fdba74; }.feedback.partial strong { color:#c2410c; }
+.feedback.unfinished { background:#fffbeb; border-color:#fcd34d; }.feedback.unfinished strong { color:#b45309; }
+.feedback.notation { background:#eef2ff; border-color:#a5b4fc; }.feedback.notation strong { color:#4338ca; }
+.feedback.bad strong { color:var(--bad); }
+.feedback.notice { background:#f1f5f9; border-color:#cbd5e1; border-style:dashed; }.feedback.notice strong { color:var(--ink); }
+/* 仮想キーボードが出ている間（<html class="vk-open">。main.js の followVirtualKeyboard が付ける）：高さ固定をゆるめてスクロールできるようにする */
+html.vk-open, html.vk-open body { height:auto; min-height:100%; overflow:auto; }
+html.vk-open body { padding-bottom:var(--vk-height,0px); }
+html.vk-open #app { height:auto; min-height:100vh; align-items:flex-start; }
+html.vk-open .quiz-shell, html.vk-open .quiz-shell .content, html.vk-open .quiz-shell .question-layout, html.vk-open .quiz-shell .problem { height:auto; overflow:visible; }
+html.vk-open .quiz-shell .content { padding-bottom:16px; }
+html.vk-open .quiz-shell .problem > .feedback { max-height:none; }
+/* 低い画面（1366×768 の Chromebook など）：判定文が2行でも「次へ」がカードの中に見えるよう、縦の余白を詰める */
+@media (max-height:820px) {
+  .quiz-shell .content { padding-bottom:76px; gap:8px; }
+  .quiz-shell .problem { gap:10px; padding:16px 22px; }
+  .quiz-shell .math { min-height:84px; padding:10px 4px; }
+  .quiz-shell .problem > .feedback { max-height:none; }
+  .quiz-shell #answer-actions { margin-top:auto; padding-top:0; }
+  .quiz-shell #answer-actions .primary { min-height:50px; }
+  .quiz-shell .problem .actions { margin-top:auto; }
+}
+/* 縦向きのタブレット（768×1024 など）：右の列（ヒント）を問題の下へ回して、説明文を読める幅にする */
+@media (max-width:900px) {
+  .quiz-shell .question-layout { grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); overflow:auto; }
+  .quiz-shell .side .question-hint .hint-step { grid-template-columns:minmax(140px,.9fr) minmax(0,1.1fr); }
+}

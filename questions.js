@@ -19,6 +19,7 @@ export const mulberry32 = seed => () => { let t = seed += 0x6D2B79F5; t = Math.i
 const pick = (rng, list) => list[Math.floor(rng() * list.length)];
 const signed = (rng, values) => pick(rng, values) * (rng() < .5 ? -1 : 1);
 const nonIntegerFraction = (rng, denominators) => { let value; do { value=R(signed(rng,[1,2,3,4]), pick(rng,denominators)); } while(value.d===1); return value; };
+const plainNumber = r => (r.d === 1 ? String(r.n) : `${r.n}/${r.d}`).replace('-', '−');
 const compact = r => r.d === 1 ? String(r.n) : `${r.n < 0 ? '-' : ''}\\frac{${Math.abs(r.n)}}{${r.d}}`;
 const decimalText = r => String(r.n / r.d);
 const displayNumber = (r, decimal=false) => decimal && 100 % r.d === 0 ? decimalText(r) : compact(r);
@@ -74,19 +75,32 @@ function baseQuestion({ templateId, subskillTag, difficulty, r, left, right, par
   const moveRight = appendNumber(compact(normalizedRight.b), normalizedLeft.b.neg());
   const transfer = `${moveLeft}=${moveRight}`;
   const normalizedEquation = equationLatex({left:normalizedLeft,right:normalizedRight});
+  const bothSides = !!normalizedRight.a.n; // 両辺に x の項がある型か
+  const divisionLatex = `x=${compact(difference)}\\div${solved.n<0?`(${compact(solved)})`:compact(solved)}`;
+  // 解説：どの項をどちらへ移項したかを言葉で示す（「両辺から定数項を同じように移す」とは書かない）
+  const signedNumber = v => `${v.n>0?'+':''}${compact(v)}`, signedTerm = v => `${v.n>0?'+':''}${showTerm(v)}`;
+  const moves = [];
+  if (normalizedLeft.b.n) moves.push(`左辺の \\(${signedNumber(normalizedLeft.b)}\\) を右辺へ`);
+  if (normalizedRight.a.n) moves.push(`右辺の \\(${signedTerm(normalizedRight.a)}\\) を左辺へ`);
+  const workedSolution = (left.paren || right.paren ? `括弧を外すと \\(${normalizedEquation}\\) です。` : `\\(${equationLatex(equation)}\\) の`)
+    + `${moves.join('、')}移項すると \\(${transfer}\\)、${bothSides ? '両辺をそれぞれ計算して' : '右辺を計算して'} \\(${arranged}\\) です。`
+    + (solved.equals(R(1)) ? '' : `両辺を \\(${compact(solved)}\\) でわると \\(${divisionLatex}=${answerLatex}\\) です。`)
+    + `代入すると左右はともに \\(${compact(evalSide(left,solution))}\\) になります。`;
   const hints=[{calc:equationLatex(equation),description:hint1}];
   if(left.paren || right.paren) hints.push({calc:normalizedEquation,description:'括弧を外して、同類項をまとめる。'});
   hints.push(
-    {calc:transfer,description:'移項して、文字の項を左辺、数の項を右辺に集める。'},
-    {calc:arranged,description:'左右それぞれの同類項を整理する。'},
-    {calc:`\\frac{${showTerm(solved)}}{${compact(solved)}}=\\frac{${compact(difference)}}{${compact(solved)}}`,description:'両辺を x の係数で割る。'},
-    {calc:`x=${answerLatex}`,description:'両辺を x の係数で割る。'}
+    {calc:transfer,description:'移項して、文字の項を左辺、数の項を右辺に集める。移項した項は符号が変わるよ。'},
+    // x の係数が 1 のときは整理した式がそのまま答え（x=…）になるので、答えの段（確認のあと）だけで見せる
+    ...(solved.equals(R(1)) ? [] : [{calc:arranged,description:bothSides?'左右それぞれの同類項を整理して、（数）x=（数）の形にする。':'両辺をそれぞれ計算して、（数）x=（数）の形にする。'}]),
+    // 両辺を x の係数でわる段は「わり算の式」まで（値は最後の段で見せる。分母がマイナスの分数は見せない）。係数が 1 なら省く
+    ...(solved.equals(R(1)) ? [] : [{calc:divisionLatex,description:solved.n<0?`両辺を x の係数 ${plainNumber(solved)} でわる。負の数でわるので、答えの符号に気をつけよう。`:`両辺を x の係数 ${plainNumber(solved)} でわる。`}]),
+    {calc:`x=${answerLatex}`,description:'これが答え。代入して確かめよう。'}
   );
   return {
     templateId, courseId:COURSE_ID, subskillTag, difficulty, generatedParams:params, equation, fingerprint:`${templateId}|${params.seed}`,
     promptParts:[{type:'text', value:'次の方程式を解きなさい。'},{type:'math', value:equationLatex(equation)}], answerSpec, eligibleForD2Mix:true, evidenceYears:[], misconceptionCodes,
     hints,
-    workedSolution:`\\(${equationLatex(equation)}\\) で、${firstStep}。移項して \\(${transfer}\\)、同類項を整理して \\(${arranged}\\) とします。両辺を \\(${compact(solved)}\\) で割ると \\(x=${answerLatex}\\)。代入すると左右はともに \\(${compact(evalSide(left,solution))}\\) です。`,
+    workedSolution,
     generatorConstraints:{uniqueSolution:true, coefficientDifferenceNonZero:true, substituted:true}, provenance:'オリジナルの生成問題（過去問本文・固有数値は不使用）'
   };
 }
@@ -111,25 +125,85 @@ export function createQuestion(templateId, sessionSeed, retryIndex = 0) {
 export function createSet(sessionSeed) { const seen=new Set(); return SESSION_BLUEPRINT.map(([id,retryIndex]) => { const q=createQuestion(id,sessionSeed,retryIndex); if(seen.has(q.fingerprint)) throw new Error('duplicate fingerprint'); seen.add(q.fingerprint); return q; }); }
 export function canonicalQuestion(question) { return canonical({templateId:question.templateId, generatedParams:question.generatedParams, answer:question.answerSpec.canonicalValue, fingerprint:question.fingerprint}); }
 
-function latexToText(input) { let s=String(input||'').replace(/\\left|\\right|\\,/g,'').replace(/−/g,'-'); let guard=0; while(/\\frac\{[^{}]*\}\{[^{}]*\}/.test(s) && guard++<12) s=s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g,'($1)/($2)'); return s.replace(/[{}]/g,'').replace(/\\times/g,'*').replace(/\\div/g,'/'); }
-export function parseRational(input) {
-  const raw=latexToText(input).replace(/\s+/g,''); if(!raw || raw.length>80 || !/^[0-9+\-*/().]+$/.test(raw)) return {ok:false, reason:'INVALID_FORMAT'};
-  const tokens=raw.match(/\d+(?:\.\d+)?|[()+\-*/]/g); if(!tokens || tokens.join('')!==raw || tokens.length>60) return {ok:false,reason:'INVALID_FORMAT'}; let i=0;
-  const decimal = /\d+\.\d+/.test(raw), fraction = raw.includes('/');
-  const fractionSource = raw.replace(/[()]/g,'');
-  const fractionParts = fractionSource.match(/^-?(\d+)\/(\d+)$/);
-  const inputReduced = !fraction || Boolean(fractionParts && gcd(Number(fractionParts[1]), Number(fractionParts[2])) === 1);
-  const number=()=>{ const t=tokens[i++]; if(!t || !/^\d/.test(t)) throw Error(); if(t.includes('.')) { const [a,b]=t.split('.'); return R(Number(a+b),10**b.length); } return R(Number(t)); };
-  const factor=()=>{ if(tokens[i]==='+'){i++;return factor();} if(tokens[i]==='-'){i++;return factor().neg();} if(tokens[i]==='('){i++;const v=expr();if(tokens[i++]!==')')throw Error();return v;} return number(); };
-  const term=()=>{let v=factor();while(tokens[i]==='*'||tokens[i]==='/'){const op=tokens[i++],w=factor();v=op==='*'?v.mul(w):v.div(w);}return v;};
-  const expr=()=>{let v=term();while(tokens[i]==='+'||tokens[i]==='-'){const op=tokens[i++],w=term();v=op==='+'?v.add(w):v.sub(w);}return v;};
-  try { const value=expr(); if(i!==tokens.length) throw Error(); return {ok:true,value,form: fraction?'reducedFraction':decimal?'exactFiniteDecimal':'integer', inputReduced, raw}; } catch { return {ok:false,reason:'INVALID_FORMAT'}; }
+// ===== 採点（DOM に触らない。GraderCore はブラウザでは index.html が先に読むグローバル、node では呼ぶ側が globalThis に置く） =====
+// 判定の方針（2026-10-23 決定）: 等しい小数（-0.5・2.0）は○、x= の有無・左右の入れ替え（-3=x）は○、
+// 約分していない分数は×（あと一歩）、マイナスを2つ書く形は×（書き方）、\frac{a}{-b} だけ△（0点）、
+// 空欄・書きかけは採点しない（status empty / unreadable）。
+const grader = () => { const g = globalThis.GraderCore; if (!g) throw new Error('GraderCore が読み込まれていません'); return g; };
+export const GRADE_MESSAGES = {
+  empty: '答えを入力してから「決定！」を押そう。',
+  unreadable: '数として読み取れなかったよ。書き直してから「決定！」を押そう。',
+  unreduced: 'あと一歩：約分しよう。',
+  notSimplified: 'あと一歩：計算を最後までして、1つの数で答えよう。',
+  doubleNegative: '書き方：マイナスは1つにまとめて書こう。',
+  doubleSign: '書き方：マイナスは1つにまとめて書こう。',
+  doublePlus: '書き方：符号は1つにまとめよう。',
+  extraPlus: '書き方：分母の前の + は書かないよ。',
+  negDenominator: '値は合っています。マイナスは分子か分数の前に書こう。',
+  mixedNumber: '帯分数は使わずに、仮分数で書こう。',
+  otherLetter: 'x の値を答えよう。',
+  spacedDigits: '数字の間に空白があります。1つの数として書き直そう。',
+};
+export const answerLatexOf = value => compact(R(value.n, value.d));
+// 「-3=x」は「x=-3」と同じに読む（左右の入れ替え）。それ以外は GraderCore.gradeNumber にそのまま渡す
+function swapLhs(raw) {
+  const n = grader().normalize(raw);
+  const m = n.s && /^([^=]+)=x$/.exec(n.s);
+  return m ? m[1] : raw;
+}
+function kindOf(r) {
+  if (r.status === 'correct') return 'correct';
+  if (r.status === 'negDenominator') return 'negDenominator';
+  if (r.status === 'notReduced') return r.reason === 'doubleNegative' ? 'notation' : 'unfinished';
+  if (r.status === 'empty' || r.status === 'unreadable') return 'incomplete';
+  return 'wrong';
+}
+// 符号を重ねた書き方（+(-4)・-(+3)・-{+3}・--3・-(-\frac12)）と、分母の前の余分な + （3/+4・\frac{3}{+4}）を見つけ、
+// 符号を1つにまとめた形にそろえる。grader-core（共通の原本の写し）は直さず、ここで前処理する。
+// 返り値: { s: そろえた文字列, reason: 'doubleSign'（マイナスを含む）| 'doublePlus'（プラスだけ）| 'extraPlus' } か null
+const DOUBLE_SIGN = /([+\-])([({]*)([+\-])/;
+const EXTRA_PLUS = /(\/[({]*|\\frac\{[^{}]*\}\{[({]*)\+/;
+function collapseSigns(raw) {
+  let n;
+  try { n = grader().normalize(raw); } catch { return null; }
+  if (!n.s) return null;
+  let s = n.s, reason = null, m, guard = 0;
+  while ((m = DOUBLE_SIGN.exec(s)) && guard++ < 20) {
+    if (m[1] === '-' || m[3] === '-') reason = 'doubleSign'; else if (!reason) reason = 'doublePlus';
+    const sign = (m[1] === '-') !== (m[3] === '-') ? '-' : '+';
+    s = s.slice(0, m.index) + sign + m[2] + s.slice(m.index + m[0].length);
+  }
+  while ((m = EXTRA_PLUS.exec(s)) && guard++ < 40) {
+    if (!reason) reason = 'extraPlus';
+    s = s.slice(0, m.index) + m[1] + s.slice(m.index + m[0].length);
+  }
+  return reason ? { s, reason } : null;
+}
+export function gradeValue(raw, answerLatex) {
+  const swapped = swapLhs(raw), collapsed = collapseSigns(swapped);
+  if (collapsed) {
+    // 符号をまとめた形で採点し、値が合っていれば ×書。途中（約分など）・値の誤り・読めないはそのまま返す
+    const r = grader().gradeNumber(collapsed.s, answerLatex, { lhs: 'x' });
+    if (r.status === 'correct' || r.status === 'negDenominator') return { status: 'notReduced', kind: 'notation', reason: collapsed.reason, message: GRADE_MESSAGES[collapsed.reason] };
+    if (r.status !== 'notReduced') return { status: r.status, kind: kindOf(r), reason: r.reason, message: r.status === 'wrong' ? '' : GRADE_MESSAGES[r.reason] || GRADE_MESSAGES[r.status] || GRADE_MESSAGES.unreadable };
+  }
+  const base = grader().gradeNumber(swapped, answerLatex, { lhs: 'x' });
+  const kind = kindOf(base);
+  const message = GRADE_MESSAGES[base.reason] || (kind === 'incomplete' ? GRADE_MESSAGES[base.status] || GRADE_MESSAGES.unreadable : kind === 'negDenominator' ? GRADE_MESSAGES.negDenominator : '');
+  return { status: base.status, kind, reason: base.reason, message };
+}
+// 生徒の答えを、MathJax に渡してよい形に描き直す（読めないときは null。生の入力は表示に使わない）
+export function safeAnswerLatex(raw) {
+  try { const n = grader().normalize(raw); return n.s ? n.s.replace(/\*/g, '\\times ') : null; } catch { return null; }
 }
 export function gradeAnswer(question, input) {
-  const parsed=parseRational(input); if(!parsed.ok) return {correct:false,code:parsed.reason}; const answer=R(question.answerSpec.canonicalValue.n,question.answerSpec.canonicalValue.d); if(!parsed.value.equals(answer)) return {correct:false,code:diagnose(question,parsed.value)};
-  const policy=question.answerSpec.formPolicy; const allowed=policy.allowedNumericForms.includes(parsed.form); const reduced=parsed.inputReduced;
-  if(!allowed || (policy.requireReducedFraction && parsed.form!=='reducedFraction') || !reduced) return {correct:false,code:'NOT_SIMPLIFIED', equivalent:true};
-  const x=parsed.value, l=question.equation.left.a.mul(question.equation.left.paren?x.add(R(question.equation.left.paren.p)):x).add(question.equation.left.b), rr=question.equation.right.a.mul(question.equation.right.paren?x.add(R(question.equation.right.paren.p)):x).add(question.equation.right.b);
-  return l.equals(rr)?{correct:true,code:null}:{correct:false,code:'UNCLASSIFIED'};
+  const v = question.answerSpec.canonicalValue;
+  const r = gradeValue(input, answerLatexOf(v));
+  r.correct = r.status === 'correct';
+  r.code = r.status === 'wrong' ? wrongCode(question, input) : null;
+  return r;
+}
+function wrongCode(question, input) {
+  try { const s = grader().normalize(swapLhs(input)).s; const val = s && /^x=/.test(s) ? s.slice(2) : s; const m = val && /^(-?)(\d+)$/.exec(val); return m ? diagnose(question, R(Number(m[1] + m[2]))) : 'UNCLASSIFIED'; } catch { return 'UNCLASSIFIED'; }
 }
 function diagnose(question, value) { const r=R(question.answerSpec.canonicalValue.n,question.answerSpec.canonicalValue.d); if(value.equals(r.neg())) return 'EQ1-SIGN'; if(question.subskillTag==='eq1.paren' && value.equals(r.add(R(1)))) return 'EQ1-DIST'; if(question.subskillTag.includes('fraction') && value.equals(R(r.n,r.d+1))) return 'EQ1-FRAC'; if(value.equals(R(r.n))) return 'EQ1-DIV'; return 'UNCLASSIFIED'; }
